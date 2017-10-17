@@ -1,0 +1,640 @@
+<rss xmlns:dc="http://purl.org/dc/elements/1.1/" xmlns:content="http://purl.org/rss/1.0/modules/content/" xmlns:atom="http://www.w3.org/2005/Atom" xmlns:media="http://search.yahoo.com/mrss/" version="2.0"><channel><title>masimplo's blog</title><description>Pressing keys, generating bytes</description><link>http://localhost:2368/</link><image><url>http://localhost:2368/favicon.png</url><title>masimplo's blog</title><link>http://localhost:2368/</link></image><generator>Ghost 1.14</generator><lastBuildDate>Tue, 17 Oct 2017 19:47:12 GMT</lastBuildDate><atom:link href="http://localhost:2368/rss/" rel="self" type="application/rss+xml"/><ttl>60</ttl><item><title>NodeJS async/await with retry</title><description>How I replaced promises with async/await in an old project and kept timeout and retry logic while reducing code footprint
+</description><link>http://localhost:2368/nodejs-async-await-with-timeout-and-retry/</link><guid isPermaLink="false">59e65cd28cc510ccbc981964</guid><category>nodejs</category><category>async programming</category><dc:creator>Michael Asimakopoulos</dc:creator><pubDate>Sun, 15 Oct 2017 16:01:06 GMT</pubDate><media:content url="http://localhost:2368/content/images/2017/10/cover-850x416.jpg" medium="image"/><content:encoded>&lt;div class="kg-card-markdown"&gt;&lt;img src="http://localhost:2368/content/images/2017/10/cover-850x416.jpg" alt="NodeJS async/await with retry"&gt;&lt;p&gt;Some time ago I wrote a microservice in plain es5 javascript running on node 4.x I recently wanted to make some changes to the service and update dependencies, as some of them had some security vulnerabilities.&lt;/p&gt;
+&lt;p&gt;Looking at code you wrote a couple years back is sometimes scary. I couldn't believe I wrote that code and I hadn't applied all the cool patterns I know now. I started by rewriting the code to use const and let istead of var and converting functions to arrow functions. Then removed Bluebird promises in favor of the now core included es6 promises. Then came functional sugaring by using map, filter, reduce and friends. One thing led to another and here I was refactoring promise thenables to async/await code.&lt;/p&gt;
+&lt;p&gt;Functions with promise chains of 80 lines got reduced down to 30 lines or less and without the christmas tree effect all over the code. One can debate that using higher order functions can reduce nesting and this is not really a problem of promises, but there are specific cases that this needs more work than is worth and inter-dependencies between promises can drive you mad.&lt;/p&gt;
+&lt;p&gt;Using promises to talk to a remote database that was not very reliable, required the use of promise-timeout and promise-retry libraries and also some rather complicated code to replay promises after they timeout. I looked around for a similar solution to async await and although I found a couple, wasn't really happy with them.&lt;/p&gt;
+&lt;p&gt;What I ended up doing is writing a &amp;quot;middleware&amp;quot; function that wraps every express callback that talks to the database. One issue is to timeout if you don't get a db response for say over 2secs and second one to retry the operation if certain conditions are met. For timeout I kept promise-timeout as I find it rather efficient.&lt;/p&gt;
+&lt;p&gt;&lt;strong&gt;Retry&lt;/strong&gt;&lt;/p&gt;
+&lt;pre&gt;&lt;code&gt;const asyncRetryMiddleware = fn =&amp;gt;
+  async (req, res, next) =&amp;gt; {
+    const retries = 3;
+    for (let i = 1; i &amp;lt;= retries; ++i) {
+      try {
+        await fn(req, res, next);
+        break;
+      } catch (err) {
+        if (err instanceof TimeoutError || err.code === 'ETIMEDOUT' || err.code === 'ECONNREFUSED') {
+          logger.warn({ err }, `database connection error occured. Will now attempt reconnect for the ${i} time and retry.`);
+          database.connectToServer();
+          if (i === retries) next(err);
+        } else if (err.name.includes('ConnectionError')) {
+          logger.error({ err }, 'Cannot connect to database. Server might be down.');
+          next(err);
+          break;
+        } else {
+          next(err);
+          break;
+        }
+      }
+    }
+  };
+&lt;/code&gt;&lt;/pre&gt;
+&lt;p&gt;usage:&lt;/p&gt;
+&lt;pre&gt;&lt;code&gt;  router.route('/tokens/:tokenId')
+    .get(asyncRetryMiddleware(groupsController.getGroupByToken));
+&lt;/code&gt;&lt;/pre&gt;
+&lt;p&gt;wrapped function:sqx&lt;/p&gt;
+&lt;pre&gt;&lt;code&gt;const getGroupByToken = async (req, res, next) =&amp;gt; {
+  const token = req.params.tokenId;
+  const match = await groupsService.getGroupByToken(token);
+  if (match) {
+    res.send(req.query.full ? match : { id: match.id });
+  } else {
+    res.status(404).send();
+  }
+  next();
+}
+&lt;/code&gt;&lt;/pre&gt;
+&lt;p&gt;Let's see what is going on here.&lt;br&gt;
+asyncRetryMiddleware is a functor that wraps an async function that might throw an error. It tries to execute that function, if everything goes as planned &lt;code&gt;break&lt;/code&gt; is called and the for loop is terminated, leaving this function without further processing.&lt;br&gt;
+If an error is thrown inside the wrapped async function however, the catch block is activated. If the error is a database timeout, we reconnect to the db and try again by not stoping the for loop. If this happens 3 times we give up and pass the error to the next callback. Otherwise if the error is not triggered in second or third attempt, we leave this handler and continue as normal.&lt;/p&gt;
+&lt;p&gt;If the error is unrecoverable or something that reconnecting to the db will not fix, there is no point in retrying so we give up on first attempt.&lt;br&gt;
+Also notice that next(error) is called in all cases for us and thus we do not have to bother calling it inside our wrapped functions, which would require an additional wrapping of their code in a try catch.&lt;/p&gt;
+&lt;p&gt;Rather straight forward.&lt;/p&gt;
+&lt;p&gt;This is the first I done in writting node code with async await (had written loads in C# in the past) and I think they make code look cleaner than using just promises. Of course promises are still there and have their use cases, but since I have been using observables in my JS code for some time now, they don't seem that appealing to me anymore. Now if only RxJS and async/await played nice with each other without having to convert to and from promises...&lt;/p&gt;
+&lt;/div&gt;</content:encoded></item><item><title>Using environment config in Ionic2</title><description>Use environment specific variables in your application to reuse code across development and production versions of your app.</description><link>http://localhost:2368/using-environment-config-in-ionic2/</link><guid isPermaLink="false">59e65cd28cc510ccbc981963</guid><dc:creator>Michael Asimakopoulos</dc:creator><pubDate>Tue, 12 Sep 2017 06:39:00 GMT</pubDate><media:content url="http://localhost:2368/content/images/2017/09/rsz_elizabeth-lies-20237.jpg" medium="image"/><content:encoded>&lt;div class="kg-card-markdown"&gt;&lt;img src="http://localhost:2368/content/images/2017/09/rsz_elizabeth-lies-20237.jpg" alt="Using environment config in Ionic2"&gt;&lt;p&gt;After you finish building your app and you are ready to deploy to the App Stores you will realize that you need to use specific variables for the production environment that are different than your development environment. After a lot of reading and some experimentation I came upon what I consider the best and most versatile way to build apks and ipas that have different &amp;quot;settings&amp;quot; for development and production.&lt;/p&gt;
+&lt;p&gt;So say you have some specific values for each environment that you want to use throughout your app, lets first declare an interface for these values, so that typescript can help us not forget declaring any and we have an easier time using them in our code.&lt;/p&gt;
+&lt;p&gt;env.variables.ts&lt;/p&gt;
+&lt;pre&gt;&lt;code&gt;export interface IEnvironmentalVariables {
+  apiUrl: string;
+  googleOAuth: string;
+  kmsApiKey: string;
+  logToConsole: boolean;
+}
+&lt;/code&gt;&lt;/pre&gt;
+&lt;p&gt;then let's declare some values for the development and production environments respectively:&lt;/p&gt;
+&lt;p&gt;env.develop.ts:&lt;/p&gt;
+&lt;pre&gt;&lt;code&gt;import { IEnvironmentalVariables } from './env.variables';
+
+export const devConfig: IEnvironmentalVariables = {
+  apiUrl: 'https://...',
+  googleOAuth: '6047....apps.googleusercontent.com',
+  kmsApiKey: '7a...1e',
+  logToConsole: true
+};
+&lt;/code&gt;&lt;/pre&gt;
+&lt;p&gt;env.production.ts:&lt;/p&gt;
+&lt;pre&gt;&lt;code&gt;import { IEnvironmentalVariables } from './env.variables';
+
+export const productionConfig: IEnvironmentalVariables = {
+  apiUrl: 'https://...',
+  googleOAuth: '6047....apps.googleusercontent.com',
+  kmsApiKey: '7a...1e',
+  logToConsole: false
+};
+&lt;/code&gt;&lt;/pre&gt;
+&lt;p&gt;We then need to declare an OpaqueToken so that we can use a simple string in Angular's DI:&lt;/p&gt;
+&lt;p&gt;environment.token.ts:&lt;/p&gt;
+&lt;pre&gt;&lt;code&gt;import { OpaqueToken } from '@angular/core';
+
+// tslint:disable-next-line:variable-name
+export const Environment = new OpaqueToken('environment');
+&lt;/code&gt;&lt;/pre&gt;
+&lt;p&gt;and then lets declare out environment module:&lt;/p&gt;
+&lt;p&gt;environment.module.ts&lt;/p&gt;
+&lt;pre&gt;&lt;code&gt;import { NgModule } from '@angular/core';
+import { Environment } from './environment.token';
+import { productionConfig } from './env.production';
+import { developConfig } from './env.develop';
+
+export function environmentFactory() {
+  switch (process.env.NODE_ENV) {
+    case 'dev':
+      return developConfig;
+    case 'prod':
+      return productionConfig;
+    default:
+      throw new Error('Enviroment not set');
+  }
+}
+
+@NgModule({
+  providers: [
+    {
+      provide: Environment,
+      useFactory: environmentFactory
+    }
+  ]
+})
+export class EnvironmentsModule { }
+&lt;/code&gt;&lt;/pre&gt;
+&lt;p&gt;This completes our module definition. We can now go ahead and use this module in any of our apps like following.&lt;br&gt;
+We first import the module as usual in our main app module.&lt;/p&gt;
+&lt;p&gt;app.module.ts&lt;/p&gt;
+&lt;pre&gt;&lt;code&gt;import { EnvironmentsModule } from '../environment/environment.module';
+
+@NgModule({
+  ...
+  imports: [
+  ...
+  EnvironmentsModule,
+  ...
+  ]
+  ...
+}
+&lt;/code&gt;&lt;/pre&gt;
+&lt;p&gt;and whenever we need to use a config value we can inject our environment like:&lt;/p&gt;
+&lt;p&gt;my-class.ts:&lt;/p&gt;
+&lt;pre&gt;&lt;code&gt;class MyClass {
+  constructor(@Inject(Environment) private _env: IEnvironmentalVariables){
+      console.log(this._env.apiUrl); // different value depending on the environment
+  }
+}
+&lt;/code&gt;&lt;/pre&gt;
+&lt;p&gt;The final steps that makes all the above take effect in the final built application is setting the NODE_ENV variable to the appropriate value. For instance to build an APK using the production config values we would run:&lt;/p&gt;
+&lt;pre&gt;&lt;code&gt;NODE_ENV=prod bash -c 'ionic cordova build android --prod --release'
+&lt;/code&gt;&lt;/pre&gt;
+&lt;/div&gt;</content:encoded></item><item><title>Testing Ionic presentables</title><description>&lt;div class="kg-card-markdown"&gt;&lt;p&gt;I frequently come across the question of how we can test a presentable in Ionic. A presentable is component that is presented in a separate navigation stack like a Modal, an Alert, an ActionSheet, a Toast, a LoadingModal etc.&lt;/p&gt;
+&lt;p&gt;Our code will normally look like:&lt;/p&gt;
+&lt;pre&gt;&lt;code&gt;private openEditorModal() {
+  const modal = this.&lt;/code&gt;&lt;/pre&gt;&lt;/div&gt;</description><link>http://localhost:2368/testing-ionic-presentables/</link><guid isPermaLink="false">59e65cd28cc510ccbc98195c</guid><dc:creator>Michael Asimakopoulos</dc:creator><pubDate>Fri, 30 Jun 2017 09:48:50 GMT</pubDate><content:encoded>&lt;div class="kg-card-markdown"&gt;&lt;p&gt;I frequently come across the question of how we can test a presentable in Ionic. A presentable is component that is presented in a separate navigation stack like a Modal, an Alert, an ActionSheet, a Toast, a LoadingModal etc.&lt;/p&gt;
+&lt;p&gt;Our code will normally look like:&lt;/p&gt;
+&lt;pre&gt;&lt;code&gt;private openEditorModal() {
+  const modal = this._modal.create(MyModalComponent);
+  modal.onDidDismiss((data: { note: string }) =&amp;gt; {
+    this.note = data.note;
+  });
+  modal.present();
+}
+&lt;/code&gt;&lt;/pre&gt;
+&lt;p&gt;So how can we test that this.note will take the value returned from the modal? We need a way to trigger onDidDismiss.&lt;br&gt;
+After gathering a few similar cases that I wanted to test I came up with a mock that can be used to test such functionality, mimicking the behaviour of normal presentables.&lt;/p&gt;
+&lt;pre&gt;&lt;code&gt;export class PresentableControllerMock {
+  public presentableRef = {
+    present: () =&amp;gt; Promise.resolve(),
+    dismiss: (data?: any) =&amp;gt; {
+      if (this.dismissCallbackFn) {
+        this.dismissCallbackFn(data);
+      }
+      return Promise.resolve({});
+    },
+    onDidDismiss: (fn) =&amp;gt; {
+      this.dismissCallbackFn = fn;
+    }
+  };
+
+  public dismissCallbackFn = null;
+
+  public create(options?) {
+    return Object.assign(this.presentableRef, options);
+  }
+}
+&lt;/code&gt;&lt;/pre&gt;
+&lt;p&gt;Now this opens up a few possibilities in our tests. Let's have a look at a simple case first.&lt;/p&gt;
+&lt;pre&gt;&lt;code&gt;  it('updates the note if it is edited', function () {
+    const modalCtrl = fixture.debugElement.injector.get(ModalController);
+    spyOn(modalCtrl, 'create').and.callThrough();
+    const modal = (&amp;lt;PresentableControllerMock&amp;gt;(&amp;lt;any&amp;gt;modalCtrl)).presentableRef;
+    spyOn(modal, 'present').and.callThrough();
+
+    sut.openEditorModal();
+
+    expect(modal.present).toHaveBeenCalled();
+    modal.dismiss({ note: 'new note' });
+      
+    expect(sut.notes).toEqual('new note');
+  });
+&lt;/code&gt;&lt;/pre&gt;
+&lt;/div&gt;</content:encoded></item><item><title>Adding type safety to Immutable.js with Typescript string literals and keyof</title><description>&lt;div class="kg-card-markdown"&gt;&lt;p&gt;Using immutable data structures is all the rage and for a good reason. After having used immutables in some large projects I can personally testify that after getting used to the initial adaptation curve, you cannot believe working without them. This is probably the reason that immutable data structures have&lt;/p&gt;&lt;/div&gt;</description><link>http://localhost:2368/adding-type-safety-to-immutable-js-with-typescript-string-literals-and-keyof/</link><guid isPermaLink="false">59e65cd28cc510ccbc98195b</guid><dc:creator>Michael Asimakopoulos</dc:creator><pubDate>Mon, 08 May 2017 18:08:00 GMT</pubDate><media:content url="http://localhost:2368/content/images/2017/05/ts.svg" medium="image"/><content:encoded>&lt;div class="kg-card-markdown"&gt;&lt;img src="http://localhost:2368/content/images/2017/05/ts.svg" alt="Adding type safety to Immutable.js with Typescript string literals and keyof"&gt;&lt;p&gt;Using immutable data structures is all the rage and for a good reason. After having used immutables in some large projects I can personally testify that after getting used to the initial adaptation curve, you cannot believe working without them. This is probably the reason that immutable data structures have been introduced in all tiers of application systems from front end frameworks and functional languages down to databases (i.e. event stores).&lt;/p&gt;
+&lt;p&gt;In my opinion one of the best immutable data implementations for javascript is immutable.js. It is very powerful and efficient, while at the same time easy to get started with. For javascript projects there is really no downside to it.&lt;br&gt;
+Using immutable.js has a real impact when being used in large projects with lots of data. I have also found that it is much easier to manage larger projects by using Typescript. For typescript projects, immutable.js has one major downside. Properties of immutable objects are accessed using strings.&lt;/p&gt;
+&lt;p&gt;For instance to get the price of a product object you would write:&lt;/p&gt;
+&lt;pre&gt;&lt;code&gt;immutableProduct.get('price');
+&lt;/code&gt;&lt;/pre&gt;
+&lt;p&gt;This is fine until you refactor the product class property price to some other string like itemPrice. Then everything breaks at runtime and typescript cannot do anything about it during compile time.&lt;/p&gt;
+&lt;p&gt;Until now there was a way to inherit immutable.js Record type and avoid using get('string') accessors, but was more trouble that I was willing to go into.&lt;/p&gt;
+&lt;p&gt;Typescript introduced string literals in version 1.8 which provided a rather crude, but possible solution.&lt;/p&gt;
+&lt;p&gt;Say you had and interface&lt;/p&gt;
+&lt;pre&gt;&lt;code&gt;interface IProduct {
+  price: number;
+  description: string;
+}
+&lt;/code&gt;&lt;/pre&gt;
+&lt;p&gt;you can introduce another interface to describe the immutable version of that data structure. Most useful functions are get('') and toJS(), so lets try to include them.&lt;/p&gt;
+&lt;pre&gt;&lt;code&gt;interface IImmutableProduct extends Immutable.Map&amp;lt;string, any&amp;gt; {
+   toJS(): IProduct;
+   get('price'|'description'): any;
+}
+&lt;/code&gt;&lt;/pre&gt;
+&lt;p&gt;So toJS() returns an IProduct and get can only receive the string &lt;code&gt;price&lt;/code&gt; or &lt;code&gt;description&lt;/code&gt;. This is cumbersome to write and a nightmare to maintain. So along came Typescript 2.1 to introduce the keyof operator, so we can rewrite our interface like:&lt;/p&gt;
+&lt;pre&gt;&lt;code&gt;interface IImmutableProduct extends Immutable.Map&amp;lt;string, any&amp;gt; {
+   toJS(): IProduct;
+   get&amp;lt;K extends keyof IProduct&amp;gt;(key: K): IProduct[K];
+}
+&lt;/code&gt;&lt;/pre&gt;
+&lt;p&gt;So now get gets a string that is a key of the interface IProduct, thus either &amp;quot;price&amp;quot; or &amp;quot;description&amp;quot; or any other we introduce in the future, inside IProduct declaration and as an added bonus the return type is also respecting the type of the interface property.&lt;/p&gt;
+&lt;p&gt;So we can now write:&lt;/p&gt;
+&lt;pre&gt;&lt;code&gt;const p = immutableProduct.get('price')
+&lt;/code&gt;&lt;/pre&gt;
+&lt;p&gt;and we get validation that price is a valid argument as opposed to prise and p is of type number.&lt;/p&gt;
+&lt;p&gt;Only downside of this approach is when dealing with collections or nested structures, as their return type is not the same as the interface, but that is ok for now as the return type was just an added bonus for now.&lt;/p&gt;
+&lt;/div&gt;</content:encoded></item><item><title>Testing RxJS5 async methods in Angular2</title><description>&lt;div class="kg-card-markdown"&gt;&lt;p&gt;For some time now I am struggling to find a way to test RxJS code that uses functions with time in them.&lt;/p&gt;
+&lt;p&gt;Let's look at an example of what we are trying to test.&lt;/p&gt;
+&lt;pre&gt;&lt;code&gt;  public ngOnInit() {
+    Observable.interval(3000)
+      .takeUntil(this._componentDestroyed)
+      .subscribe(() =&amp;gt; this._statusStore.refreshStatus());
+  }
+&lt;/code&gt;&lt;/pre&gt;
+&lt;p&gt;We have a&lt;/p&gt;&lt;/div&gt;</description><link>http://localhost:2368/testing-rxjs5-async-methods-in-angular2/</link><guid isPermaLink="false">59e65cd28cc510ccbc98195a</guid><dc:creator>Michael Asimakopoulos</dc:creator><pubDate>Wed, 15 Mar 2017 10:11:34 GMT</pubDate><media:content url="http://localhost:2368/content/images/2017/03/rxjs-testing-1.jpg" medium="image"/><content:encoded>&lt;div class="kg-card-markdown"&gt;&lt;img src="http://localhost:2368/content/images/2017/03/rxjs-testing-1.jpg" alt="Testing RxJS5 async methods in Angular2"&gt;&lt;p&gt;For some time now I am struggling to find a way to test RxJS code that uses functions with time in them.&lt;/p&gt;
+&lt;p&gt;Let's look at an example of what we are trying to test.&lt;/p&gt;
+&lt;pre&gt;&lt;code&gt;  public ngOnInit() {
+    Observable.interval(3000)
+      .takeUntil(this._componentDestroyed)
+      .subscribe(() =&amp;gt; this._statusStore.refreshStatus());
+  }
+&lt;/code&gt;&lt;/pre&gt;
+&lt;p&gt;We have a method that subscribes on an observable that emits every 3 seconds. I want to write a test that makes sure that &lt;code&gt;statusStore.refreshStatus()&lt;/code&gt; will be called every 3 seconds after someone calls &lt;code&gt;ngOnInit()&lt;/code&gt; on the system under test (sut).&lt;/p&gt;
+&lt;p&gt;Let's try to test this.&lt;/p&gt;
+&lt;pre&gt;&lt;code&gt;//Attempt 1: wait for it
+it('calls refreshStatus after 3 seconds', function(done){
+    spyOn(mockStatusStore, 'refreshStatus').and.callThrough();
+    sut.ngOnInit();
+    setTimeout(()=&amp;gt; {
+       expect(mockStatusStore.refreshStatus).toHaveBeenCalled();
+       done();
+    }, 3001);
+}, 3100);
+&lt;/code&gt;&lt;/pre&gt;
+&lt;p&gt;What we did here is write a tests that will wait for the emission of the observable (ie. 3 seconds) using a timeout. And we had to modify jasmine's default timeout from 2 seconds per test to 3,1 sec. This means that our test will last for a actual 3 seconds, which might be ok if you have 10 or 20 tests, but definitely not ok if you have a couple thousand tests (as we do). Also there is no reason to actually leave the build runner idle for 3 seconds and what if instead of 3 seconds we had an interval doing something every 10 minutes or wanted to check that this actually emitted more than once etc. Definitely not the best approach.&lt;/p&gt;
+&lt;p&gt;RxJS documentation has some examples but all of them assume that the code to be tested is declared within the test. In a similar fashion, we could modify our original code to be able to be manipulated by the test (I know it sucks, but let's take a look at that as well).&lt;br&gt;
+For the specific example what we would have to do is pass the value of the interval through the class constructor so that we can use a mock to change it.&lt;/p&gt;
+&lt;pre&gt;&lt;code&gt;// adapted code
+class MyClass {
+  constructor(private _config: Config){
+  }
+    
+  public ngOnInit() {
+    Observable.interval(this._config.intervalValue)
+      .takeUntil(this._componentDestroyed)
+      .subscribe(() =&amp;gt; this._statusStore.refreshStatus());
+  }
+}
+&lt;/code&gt;&lt;/pre&gt;
+&lt;pre&gt;&lt;code&gt;// Attempt 2: Mock the interval value
+it('calls refreshStatus after 3 seconds', function(done){
+    spyOn(mockStatusStore, 'refreshStatus').and.callThrough();
+    sut = new MyClass({intervalValue: 10});
+    sut.ngOnInit();
+    setTimeout(()=&amp;gt; {
+       expect(mockStatusStore.refreshStatus).toHaveBeenCalled();
+       done();
+    }, 30);
+});
+&lt;/code&gt;&lt;/pre&gt;
+&lt;p&gt;Not much has changed in our code, but we now have to wait 30 milliseconds instead of 3 seconds. A clear improvement over the original solution and on the plus side we do not have hard coded values in our code any more and in this example works well. In more complicated code that a lot of events are happening inside the same subscription it might be incrementally hard to mock times such that everything happens in the order expected.&lt;/p&gt;
+&lt;p&gt;Being not completely satisfied with the above solution, I kept on searching for a more viable solution that could accommodate more complex scenarios and possible not having to wait at all for async tests.&lt;br&gt;
+Some sources demonstrated the use of jasmine.clock() functionality. Jasmine clock is a way to mock the native setTimeout function and thus mock time itself. It sounds great, but as always trying to put the theory to work, doesn't always work as expected.&lt;br&gt;
+The test would become:&lt;/p&gt;
+&lt;pre&gt;&lt;code&gt;  it('polls statusStore.refreshStatus on an interval', fakeAsync(() =&amp;gt; {
+    jasmine.clock().install();
+    spyOn(mockStatusStore, 'refreshStatus').and.callThrough();
+    sut.ngOnInit();
+    expect(mockStatusStore.refreshStatus).not.toHaveBeenCalled();
+    jasmine.clock().tick(3001);
+    expect(mockStatusStore.refreshStatus).toHaveBeenCalled();
+    jasmine.clock().tick(3001);
+    expect(mockStatusStore.refreshStatus).toHaveBeenCalledTimes(2);
+    jasmine.clock().uninstall();
+  }));
+&lt;/code&gt;&lt;/pre&gt;
+&lt;p&gt;We install the jasmine clock mock, then we say how time progresses using tick() and finally remove the clock mock to prevent next tests to be affected. Doing that I got an error:&lt;/p&gt;
+&lt;blockquote&gt;
+&lt;p&gt;Jasmine Clock was unable to install over custom global timer functions. Is the clock already installed?&lt;/p&gt;
+&lt;/blockquote&gt;
+&lt;p&gt;Googling this error I came upon an &lt;a href="http://stackoverflow.com/questions/39600819/conflict-between-zone-js-and-jasmines-clock"&gt;answer of Misko Hevery on SO&lt;/a&gt;, stating:&lt;/p&gt;
+&lt;blockquote&gt;
+&lt;p&gt;The code which throws this &lt;a href="https://github.com/jasmine/jasmine/blob/8624a52ee0b6f13b3b608ea6417ccc02257c5412/src/core/Clock.js#L93"&gt;here&lt;/a&gt;.&lt;br&gt;
+It implies that jasmine was loaded before Zone.js. Switch the loading order. Zone always needs to be loaded first.&lt;/p&gt;
+&lt;/blockquote&gt;
+&lt;p&gt;One solution would be to mess with the build system and figure out how dependencies are ordered, but wanted to stir clear of that for the time being as it might break something unexpected.&lt;br&gt;
+Following down the rabbit hole I came upon an &lt;a href="https://github.com/angular/angular/issues/10127"&gt;angular issue discussion&lt;/a&gt; which although not definitive lead me to uncover Angular's helper function for testing (so far I have stirred cleared of using any angular test helpers, as I wanted to keep test code as vanilla as possible to avoid having to maintain it through Angular updates while getting stable).&lt;/p&gt;
+&lt;p&gt;Here is the resulting code:&lt;/p&gt;
+&lt;pre&gt;&lt;code&gt;  import { fakeAsync, tick, discardPeriodicTasks } from '@angular/core/testing';
+  ...
+  it('polls statusStore.refreshStatus on an interval', fakeAsync(() =&amp;gt; {
+    spyOn(mockStatusStore, 'refreshStatus').and.callThrough();
+    sut.ngOnInit();
+    expect(mockStatusStore.refreshStatus).not.toHaveBeenCalled();
+    tick(3001);
+    expect(mockStatusStore.refreshStatus).toHaveBeenCalled();
+    tick(3001);
+    expect(mockStatusStore.refreshStatus).toHaveBeenCalledTimes(2);
+    discardPeriodicTasks();
+  }));
+&lt;/code&gt;&lt;/pre&gt;
+&lt;p&gt;This is almost identical with using jasmine.clock, only simpler.&lt;br&gt;
+I will put this to the test (pun intended) and update this article with news about how it performs in more advanced test cases.&lt;/p&gt;
+&lt;/div&gt;</content:encoded></item><item><title>What's wrong with StackOverflow</title><description>&lt;div class="kg-card-markdown"&gt;&lt;p&gt;I have been a &lt;a href="http://stackoverflow.com"&gt;StackOverflow&lt;/a&gt; member for over 6 years now and as most developers nowadays, visit it a few times a day looking for possible answers to hard problems. Using SO like that is just priceless, you find answers with a lot of information that are already curated by&lt;/p&gt;&lt;/div&gt;</description><link>http://localhost:2368/whats-wrong-with-stackoverflow/</link><guid isPermaLink="false">59e65cd28cc510ccbc981959</guid><category>Internet</category><dc:creator>Michael Asimakopoulos</dc:creator><pubDate>Fri, 25 Nov 2016 20:19:25 GMT</pubDate><media:content url="http://localhost:2368/content/images/2016/11/Screenshot-2016-11-25-22.21.26.png" medium="image"/><content:encoded>&lt;div class="kg-card-markdown"&gt;&lt;img src="http://localhost:2368/content/images/2016/11/Screenshot-2016-11-25-22.21.26.png" alt="What's wrong with StackOverflow"&gt;&lt;p&gt;I have been a &lt;a href="http://stackoverflow.com"&gt;StackOverflow&lt;/a&gt; member for over 6 years now and as most developers nowadays, visit it a few times a day looking for possible answers to hard problems. Using SO like that is just priceless, you find answers with a lot of information that are already curated by a demanding community.&lt;/p&gt;
+&lt;p&gt;Lately I have found myself not directly visiting StackOverflow to try to answer questions that are in my area of expertise as I did in the past. I mostly visit the site to find answers to specific problems, or answer an unanswered question that I stumbled upon and later found the solution myself.&lt;br&gt;
+I think today I realised why this is. It is not that I do not care to give back to the community anymore, being selfish trying to solve my particular problem and then going on with my day, neither it is that I do not feel I have a lot to give back.&lt;/p&gt;
+&lt;p&gt;I have been working a lot on Angular2 for the past 8 months and have got a great understanding of how things work by now. So I thought why not go help out a few people for 20 minutes tonight before going to bed? So I opened SO, clicked on the Angular2 tag and looked at the latest questions. First thing I noticed is that there was a new question every few seconds... I know ng2 is hot, but still!&lt;/p&gt;
+&lt;p&gt;After looking through a few of them, I got depressed.&lt;/p&gt;
+&lt;h4 id="thepeoplelookingforhelp"&gt;The people looking for help&lt;/h4&gt;
+&lt;p&gt;The people looking for help put very little effort into forming the question into something that made sense and would make anyone reading it, interested in answering it, but even worse put even less effort looking for the solution in the first place. I am not talking about, something similar has been answered before situations, I am talking about it is in the 10 first lines in the docs kind of stuff.&lt;br&gt;
+Also I saw a lot of &amp;quot;&lt;em&gt;I pressed these buttons in random order and it didn't make the greatest app in the world&lt;/em&gt;&amp;quot;. Now don't get me wrong, I am not an elitist. I respect people trying to learn, but I expect a certain level of effort, in order to qualify as some &lt;strong&gt;trying&lt;/strong&gt; to learn.&lt;br&gt;
+So for those people SO is just a place where they can get a solution to their &lt;em&gt;it's not compiling in the first attempt&lt;/em&gt; issues, rather than a place they can use to learn what they heck they are doing and how to not be in that same situation in a few hours.&lt;br&gt;
+SO reputation for giving fast, good answers to any kind of programming problem might be its greatest downfall.&lt;/p&gt;
+&lt;h4 id="thepeoplegivinghelp"&gt;The people giving &amp;quot;help&amp;quot;&lt;/h4&gt;
+&lt;p&gt;But why are these people keep coming and coming back for the same kind of trivial, non interesting to any other person on the planet question? It's easy, because they get answers... and they get them fast. You see SO has such a good reputation for what it does, that a developer's score on SO is on many people's CVs and even asked in interview sessions. Many developers, I do not really care if they are good or bad at their job, find these kind of questions a great way to build up their score really fast. They answer on a question with title &lt;strong&gt;Why is my code don't work&lt;/strong&gt; with a line or two writing &lt;em&gt;You missed a semicolon there or you forgot to declare the variable&lt;/em&gt; and they get a few precious points. Probably get their buddy (or maybe a second account) to up-vote this answer a couple of times and on to the next mankind threatening issue.&lt;/p&gt;
+&lt;p&gt;I know that SO will not run out of space on its &lt;a href="http://nickcraver.com/blog/2016/02/17/stack-overflow-the-architecture-2016-edition/"&gt;great infrastructure&lt;/a&gt; any time soon and that eventually those questions and answers will be lost from the face of the internet as no-one will see them again, but it really makes me sad that such a great platform, for collaboration, knowledge sharing, even documentation of processes and thought is used in such an ill way.&lt;/p&gt;
+&lt;/div&gt;</content:encoded></item><item><title>Removing remote and local git tags</title><description>&lt;div class="kg-card-markdown"&gt;&lt;p&gt;When I first set up a teamcity build server I thought it would be a good idea to tag my git commits with the build number that teamcity processed that commit. Back then I wasn't really using tags for much and thought I would be adding value to my repo,&lt;/p&gt;&lt;/div&gt;</description><link>http://localhost:2368/removing-remote-and-local-git-tags/</link><guid isPermaLink="false">59e65cd28cc510ccbc981958</guid><category>git</category><dc:creator>Michael Asimakopoulos</dc:creator><pubDate>Thu, 17 Nov 2016 20:36:13 GMT</pubDate><media:content url="http://localhost:2368/content/images/2016/11/Screenshot-2016-11-17-22.30.09-1.png" medium="image"/><content:encoded>&lt;div class="kg-card-markdown"&gt;&lt;img src="http://localhost:2368/content/images/2016/11/Screenshot-2016-11-17-22.30.09-1.png" alt="Removing remote and local git tags"&gt;&lt;p&gt;When I first set up a teamcity build server I thought it would be a good idea to tag my git commits with the build number that teamcity processed that commit. Back then I wasn't really using tags for much and thought I would be adding value to my repo, which I later discovered was only adding noise.&lt;/p&gt;
+&lt;p&gt;Nowadays I am using tags for releases (as they are supposed to be) and for some other equally important reasons, but I have been left with the old unwanted tags in my repo. In my opinion the tag system of git is flawed. If a tag is pushed to a central repo (i.e. github) then everyone will get it and there is no real solution to put the genie back in the bottle. You can delete the tag all you want, next push from a colleague and the tag is just back in there. I have tried deleting the tags again and again, one by one, many times, even sent emails to colleagues to do the same at the same time as me, but they always find a way to creep back in (e.g from rarely used laptop or a build agent not online for some time).&lt;/p&gt;
+&lt;p&gt;I can no longer justify manually deleting them so I had to look for a more robust way to delete them every now and then, hoping that we got them in every single dark place they might be hiding. I found a couple of ways of doing this but the fastest and one liner one is like follows.&lt;/p&gt;
+&lt;p&gt;The tags I want to delete in bulk have a common characteristic that they contain the word &lt;em&gt;build&lt;/em&gt; in them. Your case might be different so you will want to modify the following to fit your needs.&lt;/p&gt;
+&lt;p&gt;&lt;strong&gt;Delete remote tags command:&lt;/strong&gt;&lt;/p&gt;
+&lt;pre&gt;&lt;code&gt;git ls-remote --tags origin | awk '/^(.*)(\s+)(.*build.*[0-9])$/ {print &amp;quot;:&amp;quot; $2}' | xargs git push origin
+&lt;/code&gt;&lt;/pre&gt;
+&lt;p&gt;Lets break this bad boy down.&lt;br&gt;
+&lt;code&gt;git ls-remote --tags origin&lt;/code&gt; just says list all the tags that are on the origin repo. The output of this command looks like:&lt;br&gt;
+&lt;code&gt;1bdcdfa0ee5ca981b6d13922913c46ff49f00356	refs/tags/build-882&lt;/code&gt; (i.e. hash [spaces] refs/tags/tagName).&lt;/p&gt;
+&lt;p&gt;We only want to keep the last part so we use awk.&lt;code&gt;(.*)&lt;/code&gt; will match the hash, &lt;code&gt;(\s+)&lt;/code&gt; will match the spaces and (.&lt;em&gt;build.&lt;/em&gt;[0-9]) will match the refs/tags/tagName part. The third part is what you want to modify to make this work for your particular situation. The output of the two first parts of the complete command will look like &lt;code&gt;:refs/tags/build-859&lt;/code&gt; as we added the colon to make the output match the argument needed by the third command.&lt;/p&gt;
+&lt;p&gt;&lt;code&gt;git push origin :refs/tags/build-859&lt;/code&gt; will delete the tag build-859 (this is the 'official' way of deleting a remote tag), so we are using xargs to pass the whole list of matching tags to the third command and thus delete all of them. The output of the complete command will look like:&lt;/p&gt;
+&lt;pre&gt;&lt;code&gt;- [deleted]         build-859
+- [deleted]         build-878
+...
+- [deleted]         build-1888
+&lt;/code&gt;&lt;/pre&gt;
+&lt;p&gt;Finally you want to delete local tags matching the same pattern as well, so that you don't push the &amp;quot;bad&amp;quot; tags back to origin next time you push all tags.&lt;/p&gt;
+&lt;p&gt;&lt;strong&gt;Delete local tags command:&lt;/strong&gt;&lt;/p&gt;
+&lt;pre&gt;&lt;code&gt;git tag -l | awk '/^(.*build.*)$/ {print $1}' | xargs git tag -d
+&lt;/code&gt;&lt;/pre&gt;
+&lt;p&gt;will take care of the local tags with output similar to the following:&lt;/p&gt;
+&lt;pre&gt;&lt;code&gt;Deleted tag 'build-859' (was 26172b3)
+Deleted tag 'build-878' (was 0ff90af)
+...
+Deleted tag 'build-1888' (was 39191b7)
+&lt;/code&gt;&lt;/pre&gt;
+&lt;p&gt;If you are confident that you don't have any local tags that do not exist on the remote (other than the ones you don't want) it might be easier to delete all local tags and then just fetch from origin. You can do this by simply skipping the awk part.&lt;/p&gt;
+&lt;p&gt;&lt;strong&gt;Delete all local tags command:&lt;/strong&gt;&lt;/p&gt;
+&lt;pre&gt;&lt;code&gt;git tag -l | xargs git tag -d
+&lt;/code&gt;&lt;/pre&gt;
+&lt;p&gt;If some day I manage to find a way to annihilate those tags completely and forever, I will let you know. Until we win that war, at least lets win some battles.&lt;/p&gt;
+&lt;/div&gt;</content:encoded></item><item><title>Updating Cordova config.xml version using npm version</title><description>&lt;div class="kg-card-markdown"&gt;&lt;p&gt;I like using npm scripts to do all my build and maintenance tasks. They are clear and can be reasoned with. I also like using the tooling built into npm like &lt;code&gt;npm version&lt;/code&gt;. For those that don't already know you can write something like &lt;code&gt;npm version 3.5.1&lt;/code&gt; and&lt;/p&gt;&lt;/div&gt;</description><link>http://localhost:2368/updating-cordova-config-xml-version-using-npm-version/</link><guid isPermaLink="false">59e65cd28cc510ccbc981957</guid><category>Ionic2</category><dc:creator>Michael Asimakopoulos</dc:creator><pubDate>Thu, 17 Nov 2016 00:23:11 GMT</pubDate><media:content url="http://localhost:2368/content/images/2016/11/cordova_logo_normal_dark_large.png" medium="image"/><content:encoded>&lt;div class="kg-card-markdown"&gt;&lt;img src="http://localhost:2368/content/images/2016/11/cordova_logo_normal_dark_large.png" alt="Updating Cordova config.xml version using npm version"&gt;&lt;p&gt;I like using npm scripts to do all my build and maintenance tasks. They are clear and can be reasoned with. I also like using the tooling built into npm like &lt;code&gt;npm version&lt;/code&gt;. For those that don't already know you can write something like &lt;code&gt;npm version 3.5.1&lt;/code&gt; and set the package.json version to the semver you passed or even do something like &lt;code&gt;npm version (major | minor | patch )&lt;/code&gt; which will increment the respective version part in package json, commit it and add a git tag as well. For a complete guide of what npm version can do take look &lt;a href="https://docs.npmjs.com/cli/version"&gt;here&lt;/a&gt;.&lt;/p&gt;
+&lt;p&gt;I frequently found myself in projects that might have another file, other than package.json, that defines a version field for a specific reason. For instance I am working on an Ionic2 cross platform mobile project that uses Cordova's config.xml file to set the mobile application version. It makes sense that this version number should match the one in package json. Editing it manually is a hassle, as is oftenly overlooked and because &lt;code&gt;npm version&lt;/code&gt; command commits after changing the version number, changing config.xml by hand would require a separate commit.&lt;/p&gt;
+&lt;p&gt;First I thought of using a git commit hook which can be accomplished by using the fact that npm version tags the version changing commit, but I don't like that git hooks are not version controlled and as such cannot be shared within a team and are short of like a hidden artifact that might slip through the cracks.&lt;/p&gt;
+&lt;p&gt;Reading throught the npm version documentation trying to find ways of extending or hooking onto it, I came upon a, what I think, is an elegant solution. After version 2.13.0 npm offers support for three version related scripts -  &lt;code&gt;preversion, version and postversion&lt;/code&gt;. As the documentation states:&lt;/p&gt;
+&lt;blockquote&gt;
+&lt;p&gt;The exact order of execution is as follows:&lt;/p&gt;
+&lt;/blockquote&gt;
+&lt;blockquote&gt;
+&lt;ol&gt;
+&lt;li&gt;Check to make sure the git working directory is clean before we get started. Your scripts may add files to the commit in future steps. This step is skipped if the --force flag is set.&lt;/li&gt;
+&lt;li&gt;Run the preversion script. These scripts have access to the old version in package.json. A typical use would be running your full test suite before deploying. Any files you want added to the commit should be explicitly added using git add.&lt;/li&gt;
+&lt;li&gt;Bump version in package.json as requested (patch, minor, major, etc).&lt;/li&gt;
+&lt;li&gt;Run the version script. These scripts have access to the new version in package.json (so they can incorporate it into file headers in generated files for example). Again, scripts should explicitly add generated files to the commit using git add.&lt;/li&gt;
+&lt;li&gt;Commit and tag.&lt;/li&gt;
+&lt;li&gt;Run the postversion script. Use it to clean up the file system or automatically push the commit and/or tag.&lt;/li&gt;
+&lt;/ol&gt;
+&lt;/blockquote&gt;
+&lt;p&gt;For my specific use case makes sense to use the version script (step 4) which takes place after the new version is available as a variable, but package.json is not committed yet. That way I can edit config.xml and then stage it for commit so it will be committed and tagged alongside package.json. It doesn't get any better than this.&lt;/p&gt;
+&lt;p&gt;For npm scripts longer than a line I like to use an external bash script and reference that in the npm script. In my package.json we add:&lt;/p&gt;
+&lt;pre&gt;&lt;code&gt;&amp;quot;scripts&amp;quot;: {
+    ...
+    &amp;quot;version&amp;quot;: &amp;quot;./bin/update-config-version.sh&amp;quot;,
+    ...
+  }
+&lt;/code&gt;&lt;/pre&gt;
+&lt;p&gt;and in update-config-version.sh:&lt;/p&gt;
+&lt;pre&gt;&lt;code&gt;#!/bin/bash
+
+CONFIG='config.xml'
+NEW_VERSION=${npm_package_version}
+
+if [ -e $CONFIG ]; then
+    # sed to replace version in config.xml
+    sed -i '' &amp;quot;s/\(widget.*version=\&amp;quot;\)\([0-9,.]*\)\&amp;quot;/\1$NEW_VERSION\&amp;quot;/&amp;quot; $CONFIG
+    git add $CONFIG
+    echo &amp;quot;Updated $CONFIG with version $NEW_VERSION&amp;quot;
+else
+    echo 'Could not find config.xml'
+    exit 1
+fi
+&lt;/code&gt;&lt;/pre&gt;
+&lt;p&gt;We first replace the old version with the new one using sed and then stage the edited file.&lt;/p&gt;
+&lt;p&gt;Note that the new version is available by npm in an environmental variable name &lt;code&gt;npm_package_version&lt;/code&gt; and we are using this variable in our script.&lt;/p&gt;
+&lt;/div&gt;</content:encoded></item><item><title>NVM is hands down the best way to install nodejs</title><description>&lt;div class="kg-card-markdown"&gt;&lt;p&gt;With NodeJS rapidly releasing newer version since the node community got back on its feet, it is now necessary to have an easy way to maintain your &lt;a href="https://node.org"&gt;NodeJS&lt;/a&gt; installations.&lt;/p&gt;
+&lt;p&gt;I have tried many different ways to install and maintain Node, distribution packages, binary downloads, building from source and finally using&lt;/p&gt;&lt;/div&gt;</description><link>http://localhost:2368/nvm-is-hands-down-the-best-way-to-install-nodejs/</link><guid isPermaLink="false">59e65cd28cc510ccbc981956</guid><dc:creator>Michael Asimakopoulos</dc:creator><pubDate>Wed, 02 Nov 2016 10:15:04 GMT</pubDate><content:encoded>&lt;div class="kg-card-markdown"&gt;&lt;p&gt;With NodeJS rapidly releasing newer version since the node community got back on its feet, it is now necessary to have an easy way to maintain your &lt;a href="https://node.org"&gt;NodeJS&lt;/a&gt; installations.&lt;/p&gt;
+&lt;p&gt;I have tried many different ways to install and maintain Node, distribution packages, binary downloads, building from source and finally using &lt;a href="https://github.com/creationix/nvm"&gt;NVM&lt;/a&gt;. I know that each method has its advantages and disadvantages, but I now have a favourite.&lt;/p&gt;
+&lt;p&gt;Nothing beats how easy it is to get to any version of Node using NVM. You can go up, you can go down, heck you can even switch back and forth all the time if that is what you need. Imagine having to run a few hundred tests across major versions of node like most CIs do. Using NVM this is easily done by writing a few lines on a script to switch to the version you need before running each round of tests.&lt;/p&gt;
+&lt;p&gt;In order to install &lt;a href="https://github.com/creationix/nvm"&gt;NVM&lt;/a&gt; all you need to do is &lt;code&gt;curl -o- https://raw.githubusercontent.com/creationix/nvm/v0.32.1/install.sh | bash&lt;/code&gt; and then you can install any version of node simply by writing &lt;code&gt;nvm install 6.9.1&lt;/code&gt;.&lt;br&gt;
+After you install a few versions of node you can switch between them simply by writing &lt;code&gt;nvm use 4.5.0&lt;/code&gt;&lt;/p&gt;
+&lt;p&gt;But what about your global packages? Say you have a global cli package that you need for you build process. You can either install them each time you install a separate node version or you can again take advantage of nvm and just do &lt;code&gt;nvm install 6.9.1 --reinstall-packages-from=4.5.2&lt;/code&gt;&lt;br&gt;
+How is that for easy migration of node versions!?&lt;/p&gt;
+&lt;p&gt;If you now want to remove your system nodejs, since you will probably not need it anymore you can do something along these lines:&lt;/p&gt;
+&lt;p&gt;&lt;code&gt;sudo rm -rf /usr/local/{lib/node{,/.npm,_modules},bin,share/man}/{npm*,node*,man1/node*}&lt;/code&gt;&lt;br&gt;
+This will delete all files installed by the system wide installed nodejs package. &lt;em&gt;Just make sure you are not messing some other computer account up, as if they don't use nvm themselves will be left with no node at all&lt;/em&gt;&lt;/p&gt;
+&lt;/div&gt;</content:encoded></item><item><title>Removing sensitive data from github</title><description>&lt;div class="kg-card-markdown"&gt;&lt;p&gt;Today I accidentally pushed a commit containing an API key to github. It wasn't an important API key, but could be. Reverting the commit will have no effect, as the API key is forever stored in git history.&lt;br&gt;
+If you are willing to rewrite history there is a solution that&lt;/p&gt;&lt;/div&gt;</description><link>http://localhost:2368/removing-sensitive-data-from-github/</link><guid isPermaLink="false">59e65cd28cc510ccbc981955</guid><dc:creator>Michael Asimakopoulos</dc:creator><pubDate>Fri, 28 Oct 2016 06:12:35 GMT</pubDate><media:content url="http://localhost:2368/content/images/2016/10/bfg.png" medium="image"/><content:encoded>&lt;div class="kg-card-markdown"&gt;&lt;img src="http://localhost:2368/content/images/2016/10/bfg.png" alt="Removing sensitive data from github"&gt;&lt;p&gt;Today I accidentally pushed a commit containing an API key to github. It wasn't an important API key, but could be. Reverting the commit will have no effect, as the API key is forever stored in git history.&lt;br&gt;
+If you are willing to rewrite history there is a solution that is well &lt;a href="https://help.github.com/articles/remove-sensitive-data/"&gt;documented by github&lt;/a&gt;.&lt;/p&gt;
+&lt;p&gt;It all boils down to this. Install &lt;a href="https://rtyley.github.io/bfg-repo-cleaner/"&gt;BFG repo cleaner&lt;/a&gt; (you can use homebrew on a Mac &lt;code&gt;brew install bfg&lt;/code&gt;) and then add your sensitive data into a local text file:&lt;/p&gt;
+&lt;p&gt;sensitive.txt:&lt;/p&gt;
+&lt;pre&gt;&lt;code&gt;api_key1
+password1
+secret_code2
+etc
+&lt;/code&gt;&lt;/pre&gt;
+&lt;p&gt;and run &lt;code&gt;bfg --replace-text sensitive.txt&lt;/code&gt;.&lt;/p&gt;
+&lt;p&gt;After the tool is done running you will get a nice detailed output on what it found and changed and ask you to run&lt;br&gt;
+&lt;code&gt;git reflog expire --expire=now --all &amp;amp;&amp;amp; git gc --prune=now --aggressive&lt;/code&gt;&lt;/p&gt;
+&lt;p&gt;Finally the dangerous part of overwriting public history (if you already pushed the bad commit, otherwise you are fine).&lt;br&gt;
+&lt;code&gt;git push -f&lt;/code&gt;&lt;/p&gt;
+&lt;/div&gt;</content:encoded></item><item><title>Ionic2 VirtualScroll custom component workaround</title><description>&lt;div class="kg-card-markdown"&gt;&lt;p&gt;Simply put virtual scroll is a performance related technique to have a scrollable list of a vast amounts of records that does not impact performance by rendering too many DOM elements. What it does to accomplish that is render just a few items and replace the item contents while scrolling&lt;/p&gt;&lt;/div&gt;</description><link>http://localhost:2368/ionic2-virtualscroll-custom-component/</link><guid isPermaLink="false">59e65cd28cc510ccbc981954</guid><category>Ionic2</category><dc:creator>Michael Asimakopoulos</dc:creator><pubDate>Tue, 18 Oct 2016 10:48:37 GMT</pubDate><media:content url="http://localhost:2368/content/images/2016/10/ionicrc0-1024x304.png" medium="image"/><content:encoded>&lt;div class="kg-card-markdown"&gt;&lt;img src="http://localhost:2368/content/images/2016/10/ionicrc0-1024x304.png" alt="Ionic2 VirtualScroll custom component workaround"&gt;&lt;p&gt;Simply put virtual scroll is a performance related technique to have a scrollable list of a vast amounts of records that does not impact performance by rendering too many DOM elements. What it does to accomplish that is render just a few items and replace the item contents while scrolling in such a fashion so that the user perceives it as she/he is actually scrolling a large list of items. This has a major impact on performance and is paramount for any app handling large amounts of data to function correctly.&lt;/p&gt;
+&lt;p&gt;In current version of &lt;a href="http://ionicframework.com"&gt;Ionic2&lt;/a&gt; (rc1) it is not yet possible to use a custom component as the item to be used by virtual scroll leading to a template that has to be defined in place rather than abstracted away in its own components. There is a currently &lt;a href="https://github.com/driftyco/ionic/issues/6881"&gt;open issue&lt;/a&gt; for that. Until that issue is resolved there is a quick workaround you can use.&lt;/p&gt;
+&lt;p&gt;Say we have a list of contacts and each contact is rendered by a component called MyContactListItem we would normally do:&lt;/p&gt;
+&lt;pre&gt;&lt;code&gt;&amp;lt;ion-list [virtualScroll]=&amp;quot;contacts&amp;quot;&amp;gt;
+       &amp;lt;my-contact-list-item
+                   *virtualItem=&amp;quot;let contact&amp;quot;
+                   [contact]=&amp;quot;contact&amp;quot;
+                   (onSelect)=&amp;quot;selected($event)&amp;quot;
+                   (onEdit)=&amp;quot;updateContact($event)&amp;quot;&amp;gt;
+        &amp;lt;/my-contact-list-item&amp;gt;
+    &amp;lt;/ion-list&amp;gt;
+&lt;/code&gt;&lt;/pre&gt;
+&lt;p&gt;This will not render anything due to the existing issue. What we can do instead is wrap our custom element in a div element which happens to work with virtualScroll (normally we would use a ion-item but this is going to mess our template at this point).&lt;/p&gt;
+&lt;pre&gt;&lt;code&gt;&amp;lt;ion-list [virtualScroll]=&amp;quot;contacts&amp;quot; approxItemHeight=&amp;quot;100px&amp;quot;&amp;gt;
+      &amp;lt;div *virtualItem=&amp;quot;let contact&amp;quot; class=&amp;quot;full-width&amp;quot;&amp;gt;
+       &amp;lt;cv-contact-list-item  [contact]=&amp;quot;contact&amp;quot;
+                              (onSelect)=&amp;quot;selected($event)&amp;quot;
+                              (onEdit)=&amp;quot;updateContact($event)&amp;quot;&amp;gt;
+        &amp;lt;/cv-contact-list-item&amp;gt;
+      &amp;lt;/div&amp;gt;
+    &amp;lt;/ion-list&amp;gt;
+&lt;/code&gt;&lt;/pre&gt;
+&lt;p&gt;And this will have to do for now.&lt;/p&gt;
+&lt;/div&gt;</content:encoded></item><item><title>Adding highlight.js to Ghost</title><description>&lt;div class="kg-card-markdown"&gt;&lt;p&gt;Markdown has an out of the box code formatting syntax using the single or triple ` symbol but it does not feature any syntax highlighting or horizontal scrolling for that matter, making somewhat larger code blocks unreadable.&lt;/p&gt;
+&lt;p&gt;There are quite a few syntax highlighting libraries out there, but by personal preference&lt;/p&gt;&lt;/div&gt;</description><link>http://localhost:2368/adding-highlight-js-to-ghost-blog/</link><guid isPermaLink="false">59e65cd28cc510ccbc981953</guid><dc:creator>Michael Asimakopoulos</dc:creator><pubDate>Mon, 17 Oct 2016 19:24:13 GMT</pubDate><media:content url="http://localhost:2368/content/images/2016/10/Screenshot-2016-10-17-22.23.54.png" medium="image"/><content:encoded>&lt;div class="kg-card-markdown"&gt;&lt;img src="http://localhost:2368/content/images/2016/10/Screenshot-2016-10-17-22.23.54.png" alt="Adding highlight.js to Ghost"&gt;&lt;p&gt;Markdown has an out of the box code formatting syntax using the single or triple ` symbol but it does not feature any syntax highlighting or horizontal scrolling for that matter, making somewhat larger code blocks unreadable.&lt;/p&gt;
+&lt;p&gt;There are quite a few syntax highlighting libraries out there, but by personal preference alone I chose to install &lt;a href="https://highlightjs.org"&gt;highlight.js&lt;/a&gt;. One way of installing it is by actually tweaking the ghost files, inserting a couple more tags on the header section. A faster way is to use the Code Injection tool on the admin panel.&lt;/p&gt;
+&lt;p&gt;In order to enable highlight.js all you have to do is head to your Admin panel &amp;gt; Code Inject and paste the following:&lt;/p&gt;
+&lt;p&gt;header section:&lt;/p&gt;
+&lt;pre&gt;&lt;code&gt;&amp;lt;link rel=&amp;quot;stylesheet&amp;quot; href=&amp;quot;//cdnjs.cloudflare.com/ajax/libs/highlight.js/9.7.0/styles/tomorrow-night-eighties.min.css&amp;quot;&amp;gt;
+&amp;lt;style&amp;gt;  
+  pre {
+    word-wrap: normal;
+    -moz-hyphens: none;
+    -ms-hyphens: none;
+    -webkit-hyphens: none;
+    hyphens: none;
+    font-size: 0.7em;
+    line-height: 1.3em;
+  }
+    pre code, pre tt {
+    white-space: pre;
+  }
+&amp;lt;/style&amp;gt;  
+&lt;/code&gt;&lt;/pre&gt;
+&lt;p&gt;footer section:&lt;/p&gt;
+&lt;pre&gt;&lt;code&gt;&amp;lt;script src=&amp;quot;//cdnjs.cloudflare.com/ajax/libs/highlight.js/9.7.0/highlight.min.js&amp;quot;&amp;gt;&amp;lt;/script&amp;gt;
+&amp;lt;script&amp;gt;hljs.initHighlightingOnLoad();&amp;lt;/script&amp;gt;  
+&lt;/code&gt;&lt;/pre&gt;
+&lt;p&gt;And there you go, a quick and dirty installation of highlight.js for your ghost blog. If you decide to keep it, it might be a good idea to actually edit the ghost files as code injection might get quite messy after a couple of those quick and dirty installations.&lt;/p&gt;
+&lt;/div&gt;</content:encoded></item><item><title>Teamcity agent as Docker container</title><description>&lt;div class="kg-card-markdown"&gt;&lt;p&gt;Updating teamcity agents with external project dependencies (e.g. gulp cli or nodejs version) can be a pain, especially if you have many build agents that are not maintained through some tooling like puppet, ansible etc. &lt;a href="https://www.jetbrains.com"&gt;Jetbrains&lt;/a&gt; have recently released official docker images for both the &lt;a href="https://www.jetbrains.com/teamcity/"&gt;TeamCity&lt;/a&gt; server and agents.&lt;/p&gt;&lt;/div&gt;</description><link>http://localhost:2368/teamcity-agent-as-docker-container/</link><guid isPermaLink="false">59e65cd28cc510ccbc981952</guid><dc:creator>Michael Asimakopoulos</dc:creator><pubDate>Sun, 16 Oct 2016 18:49:00 GMT</pubDate><media:content url="http://localhost:2368/content/images/2016/10/Screenshot-2016-10-17-21.48.48.png" medium="image"/><content:encoded>&lt;div class="kg-card-markdown"&gt;&lt;img src="http://localhost:2368/content/images/2016/10/Screenshot-2016-10-17-21.48.48.png" alt="Teamcity agent as Docker container"&gt;&lt;p&gt;Updating teamcity agents with external project dependencies (e.g. gulp cli or nodejs version) can be a pain, especially if you have many build agents that are not maintained through some tooling like puppet, ansible etc. &lt;a href="https://www.jetbrains.com"&gt;Jetbrains&lt;/a&gt; have recently released official docker images for both the &lt;a href="https://www.jetbrains.com/teamcity/"&gt;TeamCity&lt;/a&gt; server and agents. If you follow their &lt;a href="https://hub.docker.com/r/jetbrains/teamcity-agent/"&gt;guide&lt;/a&gt; you will see they recommend starting the vanilla image, bashing in, installing everything you need and then commit this container as your custom image. Unfortunately this cannot be versioned controlled, is hard to reproduce and even harder to remember what's in that magical container a few days after creating.&lt;/p&gt;
+&lt;p&gt;In my opinion a much nicer way is to use the more established approach in the docker community of starting off with their image as a base in a Dockerfile and setting up everything inside that Dockerfile.&lt;/p&gt;
+&lt;p&gt;For example I wanted a build agent that could build a javascript project using gulp. Let's take a look:&lt;/p&gt;
+&lt;pre&gt;&lt;code&gt;FROM jetbrains/teamcity-agent
+
+# Install nodejs
+RUN set -ex \
+  &amp;amp;&amp;amp; for key in \
+    9554F04D7259F04124DE6B476D5A82AC7E37093B \
+    94AE36675C464D64BAFA68DD7434390BDBE9B9C5 \
+    0034A06D9D9B0064CE8ADF6BF1747F4AD2306D93 \
+    FD3A5288F042B6850C66B31F09FE44734EB7990E \
+    71DCFD284A79C3B38668286BC97EC7A07EDE3FC1 \
+    DD8F2338BAE7501E3DD5AC78C273792F7D83545D \
+    B9AE9905FFD7803F25714661B63B535A4C206CA9 \
+    C4F0DFFF4E8C1A8236409D08E73BC641CC11F4C8 \
+  ; do \
+    gpg --keyserver ha.pool.sks-keyservers.net --recv-keys &amp;quot;$key&amp;quot;; \
+  done
+
+ENV NPM_CONFIG_LOGLEVEL info
+ENV NODE_VERSION 6.8.1
+
+RUN curl -SLO &amp;quot;https://nodejs.org/dist/v$NODE_VERSION/node-v$NODE_VERSION-linux-x64.tar.xz&amp;quot; \
+  &amp;amp;&amp;amp; curl -SLO &amp;quot;https://nodejs.org/dist/v$NODE_VERSION/SHASUMS256.txt.asc&amp;quot; \
+  &amp;amp;&amp;amp; gpg --batch --decrypt --output SHASUMS256.txt SHASUMS256.txt.asc \
+  &amp;amp;&amp;amp; grep &amp;quot; node-v$NODE_VERSION-linux-x64.tar.xz\$&amp;quot; SHASUMS256.txt | sha256sum -c - \
+  &amp;amp;&amp;amp; tar -xJf &amp;quot;node-v$NODE_VERSION-linux-x64.tar.xz&amp;quot; -C /usr/local --strip-components=1 \
+  &amp;amp;&amp;amp; rm &amp;quot;node-v$NODE_VERSION-linux-x64.tar.xz&amp;quot; SHASUMS256.txt.asc SHASUMS256.txt \
+  &amp;amp;&amp;amp; ln -s /usr/local/bin/node /usr/local/bin/nodejs
+
+# Install our global dependencies
+RUN npm i -g gulp typings
+
+# Set default environmental variables
+ENV SERVER_URL=&amp;quot;http://teamcity-server.mydomain.com&amp;quot;
+ENV AGENT_NAME=&amp;quot;build-agent-1&amp;quot;
+&lt;/code&gt;&lt;/pre&gt;
+&lt;p&gt;So we base our docker image from &lt;code&gt;jetbrains/teamcity-agent&lt;/code&gt; then install nodejs as is done in the &lt;a href="https://hub.docker.com/_/node/"&gt;official nodejs docker image&lt;/a&gt; and finally we install our global npm packages required for the build.&lt;/p&gt;
+&lt;p&gt;I chose to have a separate RUN command for the global packages as they are changing more often than nodejs version changes and would hate to have to build that whole layer again and again.&lt;/p&gt;
+&lt;p&gt;All you have to do now is run &lt;code&gt;docker build -t username/teamcity-agent .&lt;/code&gt; in the same directory as the above Dockerfile and you are good to go.&lt;/p&gt;
+&lt;/div&gt;</content:encoded></item><item><title>Listing global npm installed packages</title><description>&lt;div class="kg-card-markdown"&gt;&lt;p&gt;Now that &lt;a href="https://yarnpkg.com"&gt;yarn&lt;/a&gt; is all the hype, I am guessing a lot of people would want to reinstall their global packages using yarn. In order to find the package names and versions of globally installed packages all you need to do is:&lt;/p&gt;
+&lt;p&gt;&lt;code&gt;npm ls -g --depth=0&lt;/code&gt;&lt;/p&gt;
+&lt;/div&gt;</description><link>http://localhost:2368/listing-global-npm-installed-packages/</link><guid isPermaLink="false">59e65cd28cc510ccbc981951</guid><dc:creator>Michael Asimakopoulos</dc:creator><pubDate>Fri, 14 Oct 2016 17:36:00 GMT</pubDate><media:content url="http://localhost:2368/content/images/2016/10/weekly-header-boxes-retina.png" medium="image"/><content:encoded>&lt;div class="kg-card-markdown"&gt;&lt;img src="http://localhost:2368/content/images/2016/10/weekly-header-boxes-retina.png" alt="Listing global npm installed packages"&gt;&lt;p&gt;Now that &lt;a href="https://yarnpkg.com"&gt;yarn&lt;/a&gt; is all the hype, I am guessing a lot of people would want to reinstall their global packages using yarn. In order to find the package names and versions of globally installed packages all you need to do is:&lt;/p&gt;
+&lt;p&gt;&lt;code&gt;npm ls -g --depth=0&lt;/code&gt;&lt;/p&gt;
+&lt;/div&gt;</content:encoded></item><item><title>Running Ghost inside docker behind nginx</title><description>&lt;div class="kg-card-markdown"&gt;&lt;h2 id="letsgetussomesegregation"&gt;Let's get us some segregation&lt;/h2&gt;
+&lt;p&gt;So you want to run Ghost inside docker so you don't have to mess around with your perfectly running server and you want to segregate ghost from the rest of the services on the same server and all these other goodies that docker gives you&lt;/p&gt;&lt;/div&gt;</description><link>http://localhost:2368/running-ghost-inside-docker-behind-nginx/</link><guid isPermaLink="false">59e65cd28cc510ccbc981950</guid><category>DevOps</category><dc:creator>Michael Asimakopoulos</dc:creator><pubDate>Sun, 25 Sep 2016 18:15:00 GMT</pubDate><media:content url="http://localhost:2368/content/images/2016/09/docker-rp.jpg" medium="image"/><content:encoded>&lt;div class="kg-card-markdown"&gt;&lt;h2 id="letsgetussomesegregation"&gt;Let's get us some segregation&lt;/h2&gt;
+&lt;img src="http://localhost:2368/content/images/2016/09/docker-rp.jpg" alt="Running Ghost inside docker behind nginx"&gt;&lt;p&gt;So you want to run Ghost inside docker so you don't have to mess around with your perfectly running server and you want to segregate ghost from the rest of the services on the same server and all these other goodies that docker gives you out of the box.&lt;/p&gt;
+&lt;p&gt;Well let me stop you there. Ghost is actually not a great example for something that runs in docker, because it is as simple as hosting a hello world nodejs server, so there isn't much to it, but it might prove useful to someone starting out with docker.&lt;/p&gt;
+&lt;p&gt;Ghost is a single nodejs process serving dynamically generated pages with data fetched from a simple SQLite db rather than a bulky mySQL or similar. And that is the beauty of it, you really don't need much to serve some formatted text and a few images. And that is part of why Ghost is so fast, orders of magnitude faster than its competition. It does things simply, without trying to be a silver bullet solution, it has a niche audience, but probably a very satisfied one.&lt;/p&gt;
+&lt;p&gt;But why am I telling you that? Well, doing something small but doing it great is the new kid in the block. This is a big part of the nodejs philosophy, having &lt;a href="https://github.com/parro-it/awesome-micro-npm-packages"&gt;micro modules&lt;/a&gt;, with small focus that they do one thing awesomely. Nodejs is great for IO performance, but not so great for other thinks like caching, compressing, proxying etc. Don't get me wrong you can do all that with node, point is you probably shouldn't. That's why we have nginx. Placing an nginx proxy in front of you node server app is a win-win situation. You are offloading tasks from you project, so you don't have to worry about them, and you delegate them to someone that is really really good at doing them. Everyone should be happy :D&lt;/p&gt;
+&lt;h1 id="dockercompose"&gt;docker compose&lt;/h1&gt;
+&lt;p&gt;Best way to get two or more containers running together is docker compose. You write a yaml file - &lt;em&gt;not really crazy about yaml but what are you gonna do?&lt;/em&gt; - that describes your services - &lt;em&gt;also storage, network etc if you need to&lt;/em&gt; - and their correlation, you run a single command and everything is up and running.&lt;br&gt;
+Let's take a look at how a yaml for a Ghost blog behind an nginx would look.&lt;/p&gt;
+&lt;pre&gt;&lt;code&gt;version: '2'
+
+services:
+  proxy:
+    build: ./proxy
+    restart: always
+    links:
+      - maddev-web:maddev
+    ports:
+      - &amp;quot;80:80&amp;quot;
+      - &amp;quot;443:443&amp;quot;
+
+  maddev-web:
+    image: ghost
+    restart: always
+    volumes:
+      - ./web/ghost:/var/lib/ghost
+    ports:
+      - &amp;quot;2368&amp;quot;
+&lt;/code&gt;&lt;/pre&gt;
+&lt;p&gt;As you probably guessed I am using v2 of docker-compose.yml format which apart from declaring the version and grouping the two definitions under a &lt;code&gt;services&lt;/code&gt; key, there isn't any difference from a v1 format.&lt;/p&gt;
+&lt;p&gt;So we first declare a proxy service, that will use a customised nginx build (more on this later), we link it to the ghost service we define below (maddev-web) and we bind ports 80 and 443 to the host. Port 443 is not going to do anything yet, I will write up how we are going to set SSL in another post, so you can just as well omit it.&lt;/p&gt;
+&lt;p&gt;Then we declare our Ghost blog service, which uses the official ghost image from docker hub. We declare a volume binding whatever is in subdirectory &lt;code&gt;web/ghost&lt;/code&gt; to be mounted as &lt;code&gt;/var/lib/ghost&lt;/code&gt;. Cool thing with volumes is, that if that local directory is empty, contents of the image will be placed there so in essence bringing in all of ghost's files. When you edit them though, next time you start the container, your local files will take precedence over the image's.&lt;/p&gt;
+&lt;p&gt;Notice that we are not binding the Ghost port (2368) to the host, instead we are &lt;em&gt;exposing&lt;/em&gt; it so that it can be accessed by linked containers that will hit &lt;code&gt;container-ip:exposed-port&lt;/code&gt; and since we know the port and the container ip can be retrieved by using the link alias - &lt;em&gt;an entry in &lt;code&gt;/etc/hosts&lt;/code&gt; has been automatically added due the linking resolving the alias to the linked container's ip&lt;/em&gt; - we can just do &lt;code&gt;ghost:2846&lt;/code&gt; in the nginx container to access ghost.&lt;/p&gt;
+&lt;h2 id="nginxconfig"&gt;nginx config&lt;/h2&gt;
+&lt;p&gt;In nginx we just have to define a virtual host that will answer on port 80 (possible 443 as well if we need https) and if the requested domain is the one of our blog, then we tell nginx to forward that request to the ghost container. Here is how we do that.&lt;/p&gt;
+&lt;p&gt;&lt;strong&gt;nginx.conf&lt;/strong&gt;&lt;/p&gt;
+&lt;pre&gt;&lt;code&gt;user www-data;
+pid /var/run/nginx.pid;
+worker_processes 1;
+
+events {
+    worker_connections 1024;
+}
+
+http {
+  # Basic Settings
+  sendfile on;
+  tcp_nopush on;
+  tcp_nodelay on;
+  keepalive_timeout 33;
+  types_hash_max_size 2048;
+
+  server_tokens off;
+  server_names_hash_bucket_size 64;
+
+  include /etc/nginx/mime.types;
+  default_type application/octet-stream;
+  # Logging Settings
+  access_log /var/log/nginx/access.log;
+  error_log /var/log/nginx/error.log;
+  # Gzip Settings
+  gzip on;
+  gzip_vary on;
+  gzip_proxied any;
+  gzip_comp_level 3;
+  gzip_buffers 16 8k;
+  gzip_http_version 1.1;
+  gzip_types text/plain text/xml text/css application/x-javascript application/json;
+  gzip_disable &amp;quot;MSIE [1-6]\.(?!.*SV1)&amp;quot;;
+
+  include /etc/nginx/conf.d/*.conf;
+}
+&lt;/code&gt;&lt;/pre&gt;
+&lt;p&gt;** ghost.conf **&lt;/p&gt;
+&lt;pre&gt;&lt;code&gt;upstream maddev-web {
+  server maddev:2368;
+}
+
+server {
+  listen 80;
+  server_name maddev.gr www.maddev.gr;
+
+  location / {
+      proxy_pass         http://maddev-web;
+      proxy_http_version 1.1;
+      proxy_redirect     off;
+      proxy_set_header   Host $host;
+      proxy_set_header   Connection 'upgrade';
+      proxy_set_header   Upgrade $http_upgrade;
+      proxy_set_header   X-Real-IP $remote_addr;
+      proxy_set_header   X-Forwarded-For $proxy_add_x_forwarded_for;
+      proxy_set_header   X-Forwarded-Host $server_name;
+      proxy_set_header   X-Forwarded-Proto $scheme;
+      proxy_cache_bypass $http_upgrade;
+  }
+}
+&lt;/code&gt;&lt;/pre&gt;
+&lt;p&gt;and finally &lt;strong&gt;Dockerfile&lt;/strong&gt; inside &lt;code&gt;./proxy&lt;/code&gt;&lt;/p&gt;
+&lt;pre&gt;&lt;code&gt;FROM nginx
+COPY nginx.conf /etc/nginx/nginx.conf
+COPY ghost.conf /etc/nginx/conf.d/ghost.conf
+
+&lt;/code&gt;&lt;/pre&gt;
+&lt;p&gt;and that's it. All you have to do now is write &lt;code&gt;docker compose up -d&lt;/code&gt; and everything should be running. You can also do &lt;code&gt;docker ps&lt;/code&gt; to make sure containers are running and the correct ports are used.&lt;/p&gt;
+&lt;/div&gt;</content:encoded></item></channel></rss>
