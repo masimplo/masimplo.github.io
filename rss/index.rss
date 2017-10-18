@@ -1,4 +1,15 @@
-<rss xmlns:dc="http://purl.org/dc/elements/1.1/" xmlns:content="http://purl.org/rss/1.0/modules/content/" xmlns:atom="http://www.w3.org/2005/Atom" xmlns:media="http://search.yahoo.com/mrss/" version="2.0"><channel><title>masimplo's blog</title><description>Pressing keys, generating bytes</description><link>http://localhost:2368/</link><image><url>http://localhost:2368/favicon.png</url><title>masimplo's blog</title><link>http://localhost:2368/</link></image><generator>Ghost 1.14</generator><lastBuildDate>Tue, 17 Oct 2017 21:17:11 GMT</lastBuildDate><atom:link href="http://localhost:2368/rss/" rel="self" type="application/rss+xml"/><ttl>60</ttl><item><title>NodeJS async/await with retry</title><description>How I replaced promises with async/await in an old project and kept timeout and retry logic while reducing code footprint
+<rss xmlns:dc="http://purl.org/dc/elements/1.1/" xmlns:content="http://purl.org/rss/1.0/modules/content/" xmlns:atom="http://www.w3.org/2005/Atom" xmlns:media="http://search.yahoo.com/mrss/" version="2.0"><channel><title>masimplo's blog</title><description>Pressing keys, generating bytes</description><link>http://localhost:2368/</link><image><url>http://localhost:2368/favicon.png</url><title>masimplo's blog</title><link>http://localhost:2368/</link></image><generator>Ghost 1.14</generator><lastBuildDate>Wed, 18 Oct 2017 12:33:36 GMT</lastBuildDate><atom:link href="http://localhost:2368/rss/" rel="self" type="application/rss+xml"/><ttl>60</ttl><item><title>Git rerere to the rererescue</title><description>&lt;div class="kg-card-markdown"&gt;&lt;p&gt;When working on a feature branch you are sometimes isolated by all the fun that happens on the develop and master branches. You are developing feature A and someone merges onto develop utility X which you would like to use for your feature. First thought would be to merge develop&lt;/p&gt;&lt;/div&gt;</description><link>http://localhost:2368/git-rerere-to-the-rererescue/</link><guid isPermaLink="false">59e713bb78ff08e7f10f2e08</guid><dc:creator>Michael Asimakopoulos</dc:creator><pubDate>Wed, 18 Oct 2017 12:32:43 GMT</pubDate><media:content url="http://localhost:2368/content/images/2017/10/abraham-osorio-184519.jpg" medium="image"/><content:encoded>&lt;div class="kg-card-markdown"&gt;&lt;img src="http://localhost:2368/content/images/2017/10/abraham-osorio-184519.jpg" alt="Git rerere to the rererescue"&gt;&lt;p&gt;When working on a feature branch you are sometimes isolated by all the fun that happens on the develop and master branches. You are developing feature A and someone merges onto develop utility X which you would like to use for your feature. First thought would be to merge develop branch onto your feature and then you would have access to the new shiny code snippet you so much desired. Merging develop into a feature branch creates an ugly, unhelpfull, troublesome when doing &lt;code&gt;git bisect&lt;/code&gt; commit, reading &amp;quot;Merge develop into feature/A&amp;quot;.&lt;/p&gt;
+&lt;p&gt;Many teams prefer rebasing as it keeps history clean. So instead of merging the develop branch onto feature/A you are rebasing feature/A onto develop. What this does is put away your commits, start from develop and then replay your commits one by one on top of latest develop. Great! no more merge commits this way. BUT, if any of your commits have one or more conflicts you will have to resolve them while replaying that commit on top of develop. Cool you say, I will have to deal with conflicts one at a time instead of being faced with a bucket of conflicts when merging. Ok you guessed it there is another BUT! BUT, say that you rebase and then 5 days pass and something else cools comes up into to develop and you want it, or you are ready to merge the feature back onto develop, doing another rebase will ask you to resolve all conflicts again from scratch as it will replay all your commits onto latest develop. Nobody wants to deal with same problems more than once.&lt;/p&gt;
+&lt;p&gt;Turns out git has yet another hidden feature (or not so much advertised anyway). Enter git rerere which stands for &lt;strong&gt;R&lt;/strong&gt;euse &lt;strong&gt;R&lt;/strong&gt;ecorded &lt;strong&gt;R&lt;/strong&gt;esolution. Rerere is a config option rather than a command (there is a command also but serves for advanced usage of recorded resolutions and not enabling/disabling the feature. To enable rerere just do:&lt;/p&gt;
+&lt;pre&gt;&lt;code&gt;git config --global rerere.enabled true
+&lt;/code&gt;&lt;/pre&gt;
+&lt;p&gt;or edit your ~/.gitconfig by hand entering:&lt;/p&gt;
+&lt;pre&gt;&lt;code&gt;[rerere]
+	enabled = true
+	autoupdate = true
+&lt;/code&gt;&lt;/pre&gt;
+&lt;p&gt;And that's it. Now whenever you do a rebase and resolve some conflict, git will save that resolution and if it happens again during another rebase it will resolve it automatically.&lt;/p&gt;
+&lt;/div&gt;</content:encoded></item><item><title>NodeJS async/await with retry</title><description>How I replaced promises with async/await in an old project and kept timeout and retry logic while reducing code footprint
 </description><link>http://localhost:2368/nodejs-async-await-with-timeout-and-retry/</link><guid isPermaLink="false">59e65cd28cc510ccbc981964</guid><category>nodejs</category><category>async programming</category><dc:creator>Michael Asimakopoulos</dc:creator><pubDate>Sun, 15 Oct 2017 16:01:06 GMT</pubDate><media:content url="http://localhost:2368/content/images/2017/10/cover-850x416.jpg" medium="image"/><content:encoded>&lt;div class="kg-card-markdown"&gt;&lt;img src="http://localhost:2368/content/images/2017/10/cover-850x416.jpg" alt="NodeJS async/await with retry"&gt;&lt;p&gt;Some time ago I wrote a microservice in plain es5 javascript running on node 4.x I recently wanted to make some changes to the service and update dependencies, as some of them had some security vulnerabilities.&lt;/p&gt;
 &lt;p&gt;Looking at code you wrote a couple years back is sometimes scary. I couldn't believe I wrote that code and I hadn't applied all the cool patterns I know now. I started by rewriting the code to use const and let istead of var and converting functions to arrow functions. Then removed Bluebird promises in favor of the now core included es6 promises. Then came functional sugaring by using map, filter, reduce and friends. One thing led to another and here I was refactoring promise thenables to async/await code.&lt;/p&gt;
 &lt;p&gt;Functions with promise chains of 80 lines got reduced down to 30 lines or less and without the christmas tree effect all over the code. One can debate that using higher order functions can reduce nesting and this is not really a problem of promises, but there are specific cases that this needs more work than is worth and inter-dependencies between promises can drive you mad.&lt;/p&gt;
@@ -533,108 +544,4 @@ ENV AGENT_NAME=&amp;quot;build-agent-1&amp;quot;
 &lt;p&gt;&lt;code&gt;npm ls -g --depth=0&lt;/code&gt;&lt;/p&gt;
 &lt;/div&gt;</description><link>http://localhost:2368/listing-global-npm-installed-packages/</link><guid isPermaLink="false">59e65cd28cc510ccbc981951</guid><dc:creator>Michael Asimakopoulos</dc:creator><pubDate>Fri, 14 Oct 2016 17:36:00 GMT</pubDate><media:content url="http://localhost:2368/content/images/2016/10/weekly-header-boxes-retina.png" medium="image"/><content:encoded>&lt;div class="kg-card-markdown"&gt;&lt;img src="http://localhost:2368/content/images/2016/10/weekly-header-boxes-retina.png" alt="Listing global npm installed packages"&gt;&lt;p&gt;Now that &lt;a href="https://yarnpkg.com"&gt;yarn&lt;/a&gt; is all the hype, I am guessing a lot of people would want to reinstall their global packages using yarn. In order to find the package names and versions of globally installed packages all you need to do is:&lt;/p&gt;
 &lt;p&gt;&lt;code&gt;npm ls -g --depth=0&lt;/code&gt;&lt;/p&gt;
-&lt;/div&gt;</content:encoded></item><item><title>Running Ghost inside docker behind nginx</title><description>&lt;div class="kg-card-markdown"&gt;&lt;h2 id="letsgetussomesegregation"&gt;Let's get us some segregation&lt;/h2&gt;
-&lt;p&gt;So you want to run Ghost inside docker so you don't have to mess around with your perfectly running server and you want to segregate ghost from the rest of the services on the same server and all these other goodies that docker gives you&lt;/p&gt;&lt;/div&gt;</description><link>http://localhost:2368/running-ghost-inside-docker-behind-nginx/</link><guid isPermaLink="false">59e65cd28cc510ccbc981950</guid><category>DevOps</category><dc:creator>Michael Asimakopoulos</dc:creator><pubDate>Sun, 25 Sep 2016 18:15:00 GMT</pubDate><media:content url="http://localhost:2368/content/images/2016/09/docker-rp.jpg" medium="image"/><content:encoded>&lt;div class="kg-card-markdown"&gt;&lt;h2 id="letsgetussomesegregation"&gt;Let's get us some segregation&lt;/h2&gt;
-&lt;img src="http://localhost:2368/content/images/2016/09/docker-rp.jpg" alt="Running Ghost inside docker behind nginx"&gt;&lt;p&gt;So you want to run Ghost inside docker so you don't have to mess around with your perfectly running server and you want to segregate ghost from the rest of the services on the same server and all these other goodies that docker gives you out of the box.&lt;/p&gt;
-&lt;p&gt;Well let me stop you there. Ghost is actually not a great example for something that runs in docker, because it is as simple as hosting a hello world nodejs server, so there isn't much to it, but it might prove useful to someone starting out with docker.&lt;/p&gt;
-&lt;p&gt;Ghost is a single nodejs process serving dynamically generated pages with data fetched from a simple SQLite db rather than a bulky mySQL or similar. And that is the beauty of it, you really don't need much to serve some formatted text and a few images. And that is part of why Ghost is so fast, orders of magnitude faster than its competition. It does things simply, without trying to be a silver bullet solution, it has a niche audience, but probably a very satisfied one.&lt;/p&gt;
-&lt;p&gt;But why am I telling you that? Well, doing something small but doing it great is the new kid in the block. This is a big part of the nodejs philosophy, having &lt;a href="https://github.com/parro-it/awesome-micro-npm-packages"&gt;micro modules&lt;/a&gt;, with small focus that they do one thing awesomely. Nodejs is great for IO performance, but not so great for other thinks like caching, compressing, proxying etc. Don't get me wrong you can do all that with node, point is you probably shouldn't. That's why we have nginx. Placing an nginx proxy in front of you node server app is a win-win situation. You are offloading tasks from you project, so you don't have to worry about them, and you delegate them to someone that is really really good at doing them. Everyone should be happy :D&lt;/p&gt;
-&lt;h1 id="dockercompose"&gt;docker compose&lt;/h1&gt;
-&lt;p&gt;Best way to get two or more containers running together is docker compose. You write a yaml file - &lt;em&gt;not really crazy about yaml but what are you gonna do?&lt;/em&gt; - that describes your services - &lt;em&gt;also storage, network etc if you need to&lt;/em&gt; - and their correlation, you run a single command and everything is up and running.&lt;br&gt;
-Let's take a look at how a yaml for a Ghost blog behind an nginx would look.&lt;/p&gt;
-&lt;pre&gt;&lt;code&gt;version: '2'
-
-services:
-  proxy:
-    build: ./proxy
-    restart: always
-    links:
-      - maddev-web:maddev
-    ports:
-      - &amp;quot;80:80&amp;quot;
-      - &amp;quot;443:443&amp;quot;
-
-  maddev-web:
-    image: ghost
-    restart: always
-    volumes:
-      - ./web/ghost:/var/lib/ghost
-    ports:
-      - &amp;quot;2368&amp;quot;
-&lt;/code&gt;&lt;/pre&gt;
-&lt;p&gt;As you probably guessed I am using v2 of docker-compose.yml format which apart from declaring the version and grouping the two definitions under a &lt;code&gt;services&lt;/code&gt; key, there isn't any difference from a v1 format.&lt;/p&gt;
-&lt;p&gt;So we first declare a proxy service, that will use a customised nginx build (more on this later), we link it to the ghost service we define below (maddev-web) and we bind ports 80 and 443 to the host. Port 443 is not going to do anything yet, I will write up how we are going to set SSL in another post, so you can just as well omit it.&lt;/p&gt;
-&lt;p&gt;Then we declare our Ghost blog service, which uses the official ghost image from docker hub. We declare a volume binding whatever is in subdirectory &lt;code&gt;web/ghost&lt;/code&gt; to be mounted as &lt;code&gt;/var/lib/ghost&lt;/code&gt;. Cool thing with volumes is, that if that local directory is empty, contents of the image will be placed there so in essence bringing in all of ghost's files. When you edit them though, next time you start the container, your local files will take precedence over the image's.&lt;/p&gt;
-&lt;p&gt;Notice that we are not binding the Ghost port (2368) to the host, instead we are &lt;em&gt;exposing&lt;/em&gt; it so that it can be accessed by linked containers that will hit &lt;code&gt;container-ip:exposed-port&lt;/code&gt; and since we know the port and the container ip can be retrieved by using the link alias - &lt;em&gt;an entry in &lt;code&gt;/etc/hosts&lt;/code&gt; has been automatically added due the linking resolving the alias to the linked container's ip&lt;/em&gt; - we can just do &lt;code&gt;ghost:2846&lt;/code&gt; in the nginx container to access ghost.&lt;/p&gt;
-&lt;h2 id="nginxconfig"&gt;nginx config&lt;/h2&gt;
-&lt;p&gt;In nginx we just have to define a virtual host that will answer on port 80 (possible 443 as well if we need https) and if the requested domain is the one of our blog, then we tell nginx to forward that request to the ghost container. Here is how we do that.&lt;/p&gt;
-&lt;p&gt;&lt;strong&gt;nginx.conf&lt;/strong&gt;&lt;/p&gt;
-&lt;pre&gt;&lt;code&gt;user www-data;
-pid /var/run/nginx.pid;
-worker_processes 1;
-
-events {
-    worker_connections 1024;
-}
-
-http {
-  # Basic Settings
-  sendfile on;
-  tcp_nopush on;
-  tcp_nodelay on;
-  keepalive_timeout 33;
-  types_hash_max_size 2048;
-
-  server_tokens off;
-  server_names_hash_bucket_size 64;
-
-  include /etc/nginx/mime.types;
-  default_type application/octet-stream;
-  # Logging Settings
-  access_log /var/log/nginx/access.log;
-  error_log /var/log/nginx/error.log;
-  # Gzip Settings
-  gzip on;
-  gzip_vary on;
-  gzip_proxied any;
-  gzip_comp_level 3;
-  gzip_buffers 16 8k;
-  gzip_http_version 1.1;
-  gzip_types text/plain text/xml text/css application/x-javascript application/json;
-  gzip_disable &amp;quot;MSIE [1-6]\.(?!.*SV1)&amp;quot;;
-
-  include /etc/nginx/conf.d/*.conf;
-}
-&lt;/code&gt;&lt;/pre&gt;
-&lt;p&gt;** ghost.conf **&lt;/p&gt;
-&lt;pre&gt;&lt;code&gt;upstream maddev-web {
-  server maddev:2368;
-}
-
-server {
-  listen 80;
-  server_name maddev.gr www.maddev.gr;
-
-  location / {
-      proxy_pass         http://maddev-web;
-      proxy_http_version 1.1;
-      proxy_redirect     off;
-      proxy_set_header   Host $host;
-      proxy_set_header   Connection 'upgrade';
-      proxy_set_header   Upgrade $http_upgrade;
-      proxy_set_header   X-Real-IP $remote_addr;
-      proxy_set_header   X-Forwarded-For $proxy_add_x_forwarded_for;
-      proxy_set_header   X-Forwarded-Host $server_name;
-      proxy_set_header   X-Forwarded-Proto $scheme;
-      proxy_cache_bypass $http_upgrade;
-  }
-}
-&lt;/code&gt;&lt;/pre&gt;
-&lt;p&gt;and finally &lt;strong&gt;Dockerfile&lt;/strong&gt; inside &lt;code&gt;./proxy&lt;/code&gt;&lt;/p&gt;
-&lt;pre&gt;&lt;code&gt;FROM nginx
-COPY nginx.conf /etc/nginx/nginx.conf
-COPY ghost.conf /etc/nginx/conf.d/ghost.conf
-
-&lt;/code&gt;&lt;/pre&gt;
-&lt;p&gt;and that's it. All you have to do now is write &lt;code&gt;docker compose up -d&lt;/code&gt; and everything should be running. You can also do &lt;code&gt;docker ps&lt;/code&gt; to make sure containers are running and the correct ports are used.&lt;/p&gt;
 &lt;/div&gt;</content:encoded></item></channel></rss>
